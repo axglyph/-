@@ -1,28 +1,16 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
-import { NewsItem, QuantumTrends } from "../types";
-
-// 安全获取 API Key 的辅助函数
-const getApiKey = () => {
-  try {
-    // 检查 process 是否定义，防止浏览器端报错
-    if (typeof process !== 'undefined' && process.env && process.env.API_KEY) {
-      return process.env.API_KEY;
-    }
-  } catch (e) {
-    console.warn("Could not access process.env.API_KEY:", e);
-  }
-  return '';
-};
+import { QuantumTrends } from "../types";
 
 export const fetchQuantumTrends = async (): Promise<QuantumTrends> => {
-  const apiKey = getApiKey();
-  
-  if (!apiKey) {
-    throw new Error("检测到 API Key 缺失。请确保在部署环境中配置了 process.env.API_KEY 变量。");
+  // Use API key directly from process.env.API_KEY as per guidelines
+  if (!process.env.API_KEY) {
+    throw new Error("API_KEY_MISSING");
   }
 
-  const ai = new GoogleGenAI({ apiKey });
+  // Always use const ai = new GoogleGenAI({apiKey: process.env.API_KEY});
+  // Create instance right before use to ensure latest key
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
   const prompt = `
     Find the top 5 most trending/popular news or articles about Quantum Technology in Chinese and the top 5 in English.
@@ -43,7 +31,8 @@ export const fetchQuantumTrends = async (): Promise<QuantumTrends> => {
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
-      contents: [{ role: 'user', parts: [{ text: prompt }] }],
+      // Simplified contents structure as per SDK guidelines
+      contents: prompt,
       config: {
         tools: [{ googleSearch: {} }],
         responseMimeType: "application/json",
@@ -83,11 +72,24 @@ export const fetchQuantumTrends = async (): Promise<QuantumTrends> => {
     });
 
     const text = response.text;
-    if (!text) throw new Error("AI 未返回有效内容，请稍后重试。");
+    if (!text) throw new Error("EMPTY_RESPONSE");
     
-    return JSON.parse(text) as QuantumTrends;
-  } catch (error) {
-    console.error("Error fetching quantum trends:", error);
+    // MUST ALWAYS extract the URLs from groundingChunks and list them on the web app.
+    const groundingChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks;
+    const groundingUrls = groundingChunks
+      ?.map((chunk: any) => chunk.web?.uri)
+      .filter((uri: any) => !!uri) || [];
+
+    const data = JSON.parse(text) as QuantumTrends;
+    // Store unique grounding URLs for UI display
+    data.groundingUrls = Array.from(new Set(groundingUrls));
+    
+    return data;
+  } catch (error: any) {
+    console.error("Gemini Service Error:", error);
+    if (error.message?.includes("Requested entity was not found")) {
+        throw new Error("ENTITY_NOT_FOUND");
+    }
     throw error;
   }
 };
