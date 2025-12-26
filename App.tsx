@@ -18,8 +18,9 @@ const App: React.FC = () => {
       const data = await fetchQuantumTrends();
       setTrends(data);
       setLastUpdated(new Date());
-    } catch (err) {
-      setError("Failed to fetch latest quantum tech trends. Please try again later.");
+    } catch (err: any) {
+      console.error(err);
+      setError(err.message || "获取量子科技趋势失败，请检查网络或配置。");
     } finally {
       setLoading(false);
     }
@@ -62,9 +63,12 @@ const App: React.FC = () => {
       </header>
 
       {error && (
-        <div className="bg-red-500/10 border border-red-500/20 p-4 rounded-xl text-red-400 text-center mb-12 flex items-center justify-center gap-3">
-          <i className="fa-solid fa-triangle-exclamation"></i>
-          {error}
+        <div className="bg-red-500/10 border border-red-500/20 p-6 rounded-xl text-red-400 text-center mb-12 max-w-2xl mx-auto">
+          <div className="flex items-center justify-center gap-3 mb-2 font-bold text-lg">
+            <i className="fa-solid fa-triangle-exclamation"></i>
+            配置或运行错误
+          </div>
+          <p className="text-sm opacity-90">{error}</p>
         </div>
       )}
 
@@ -87,9 +91,11 @@ const App: React.FC = () => {
             {loading ? (
               Array(5).fill(0).map((_, i) => <Skeleton key={`sk-zh-${i}`} />)
             ) : (
-              trends?.chinese.map((item, idx) => (
-                <NewsCard key={`zh-${idx}`} item={item} index={idx} lang="zh" />
-              ))
+              trends?.chinese && trends.chinese.length > 0 ? (
+                trends.chinese.map((item, idx) => (
+                  <NewsCard key={`zh-${idx}`} item={item} index={idx} lang="zh" />
+                ))
+              ) : !error && <div className="text-slate-500 italic text-center py-8">暂无数据</div>
             )}
           </div>
         </section>
@@ -110,9 +116,11 @@ const App: React.FC = () => {
             {loading ? (
               Array(5).fill(0).map((_, i) => <Skeleton key={`sk-en-${i}`} />)
             ) : (
-              trends?.english.map((item, idx) => (
-                <NewsCard key={`en-${idx}`} item={item} index={idx} lang="en" />
-              ))
+              trends?.english && trends.english.length > 0 ? (
+                trends.english.map((item, idx) => (
+                  <NewsCard key={`en-${idx}`} item={item} index={idx} lang="en" />
+                ))
+              ) : !error && <div className="text-slate-500 italic text-center py-8">No data available</div>
             )}
           </div>
         </section>
